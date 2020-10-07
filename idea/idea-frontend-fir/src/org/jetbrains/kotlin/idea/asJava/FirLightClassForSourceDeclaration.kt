@@ -48,11 +48,12 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
     StubBasedPsiElement<KotlinClassOrObjectStub<out KtClassOrObject>> {
 
     private val _modifierList: PsiModifierList? by lazyPub {
-        val modifiers = classOrObject.withFir<FirMemberDeclaration, Set<String>?> {
-            (this as? FirMemberDeclaration)?.computeModifiers(classOrObject.isTopLevel())
-        } ?: emptySet()
-
-        FirLightClassModifierList(this, modifiers)
+        classOrObject.withFir<FirMemberDeclaration, PsiModifierList> {
+            val modifiers = (this as? FirMemberDeclaration)?.computeModifiers(classOrObject.isTopLevel())
+                ?: emptySet()
+            val annotations = computeAnnotations(this@FirLightClassForSourceDeclaration)
+            FirLightClassModifierList(this@FirLightClassForSourceDeclaration, modifiers, annotations)
+        }
     }
 
     override fun getModifierList(): PsiModifierList? = _modifierList

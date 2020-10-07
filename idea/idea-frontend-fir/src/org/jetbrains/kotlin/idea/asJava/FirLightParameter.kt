@@ -12,14 +12,23 @@ import com.intellij.psi.search.SearchScope
 import com.intellij.util.IncorrectOperationException
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.*
+import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.psi
+import org.jetbrains.kotlin.fir.types.ConeClassLikeType
+import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.fir.types.isNullable
+import org.jetbrains.kotlin.fir.types.toConstKind
+import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
 import org.jetbrains.kotlin.psi.KtParameter
 
 internal abstract class FirLightParameter(containingDeclaration: FirLightMethod) : PsiVariable, NavigationItem,
     KtLightElement<KtParameter, PsiParameter>, KtLightParameter, KtLightElementBase(containingDeclaration) {
 
     override val clsDelegate: PsiParameter
+        get() = invalidAccess()
+
+    override val givenAnnotations: List<KtLightAbstractAnnotation>
         get() = invalidAccess()
 
     override fun getTypeElement(): PsiTypeElement? = null
@@ -97,13 +106,24 @@ internal class FirLightParameterForFirNode(
 
     override val kotlinOrigin: KtParameter? = parameter.psi as? KtParameter
 
-    override val givenAnnotations: List<KtLightAbstractAnnotation> = emptyList() //TODO()
+    private val _modifiers: Set<String> by getAndAddLazy {
+        (parameter as? FirMemberDeclaration)?.computeModifiers(isTopLevel = false) ?: emptySet()
+    }
 
-    private val lightModifierList by lazyPub { FirLightClassModifierList(this, emptySet()) }
+    private val _annotations: List<PsiAnnotation> by getAndAddLazy {
+        parameter.computeAnnotations(this, parameter.returnTypeRef.coneType.nullabilityForJava)
+    }
 
-    override fun getModifierList(): PsiModifierList = lightModifierList
+    override fun getModifierList(): PsiModifierList = _modifierList
+    private val _modifierList: PsiModifierList by getAndAddLazy {
+        FirLightClassModifierList(this, _modifiers, _annotations)
+    }
 
-    override fun getType(): PsiType = PsiType.VOID
+    private val _type by getAndAddLazy {
+        parameter.returnTypeRef.coneType.asPsiType(parameter.session, TypeMappingMode.DEFAULT, this)
+    }
+
+    override fun getType(): PsiType = _type
 
     init {
         //We should force computations on all lazy delegates to release descriptor on the end of ctor call

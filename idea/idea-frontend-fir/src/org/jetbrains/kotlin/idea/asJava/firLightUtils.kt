@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.idea.asJava
 
+import com.intellij.psi.PsiAnnotation
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiModifier
 import com.intellij.psi.PsiType
@@ -12,15 +13,17 @@ import com.intellij.psi.impl.cache.TypeInfo
 import com.intellij.psi.impl.compiled.ClsTypeElementImpl
 import com.intellij.psi.impl.compiled.SignatureParsing
 import com.intellij.psi.impl.compiled.StubBuildingVisitor
+import org.jetbrains.annotations.NotNull
+import org.jetbrains.annotations.Nullable
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.jvm.jvmTypeMapper
-import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
-import org.jetbrains.kotlin.fir.declarations.modality
-import org.jetbrains.kotlin.fir.declarations.visibility
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.resolve.calls.isUnit
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
+import org.jetbrains.kotlin.types.typeUtil.TypeNullability
 import java.text.StringCharacterIterator
 
 internal fun <L : Any> L.invalidAccess(): Nothing =
@@ -40,18 +43,52 @@ internal fun ConeKotlinType.asPsiType(
     val typeElement = ClsTypeElementImpl(psiContext, typeText, '\u0000')
     return typeElement.type
 }
-internal fun FirMemberDeclaration.computeModifiers(isTopLevel: Boolean): Set<String> {
 
-    val modifier = when (modality) {
-        Modality.FINAL -> PsiModifier.FINAL
-        Modality.OPEN -> PsiModifier.OPEN
-        Modality.ABSTRACT -> PsiModifier.ABSTRACT
-        Modality.SEALED -> PsiModifier.ABSTRACT
+internal fun FirAnnotatedDeclaration.computeAnnotations(
+    parent: PsiElement,
+    nullability: ConeNullability = ConeNullability.UNKNOWN
+): List<PsiAnnotation> {
+
+    if (nullability == ConeNullability.UNKNOWN && annotations.isEmpty()) return emptyList()
+
+    val nullabilityAnnotation = when (nullability) {
+        ConeNullability.NOT_NULL -> NotNull::class.java
+        ConeNullability.NULLABLE -> Nullable::class.java
         else -> null
+    }?.let {
+        FirLightSimpleAnnotation(it.name, parent)
     }
 
+    if (annotations.isEmpty()) {
+        return if (nullabilityAnnotation != null) listOf(nullabilityAnnotation) else emptyList()
+    }
+
+    val result = mutableListOf<PsiAnnotation>()
+    annotations.mapTo(result) {
+        FirLightAnnotationForFirNode(it, parent)
+    }
+
+    if (nullabilityAnnotation != null) {
+        result.add(nullabilityAnnotation)
+    }
+
+    return result
+}
+
+internal fun FirMemberDeclaration.computeModifiers(isTopLevel: Boolean): Set<String> {
+
     var psiModifiers: MutableSet<String>? = null
-    if (modifier != null) psiModifiers = mutableSetOf(modifier)
+    if (this !is FirConstructor) {
+        val modifier = when (modality) {
+            Modality.FINAL -> PsiModifier.FINAL
+            Modality.OPEN -> PsiModifier.OPEN
+            Modality.ABSTRACT -> PsiModifier.ABSTRACT
+            Modality.SEALED -> PsiModifier.ABSTRACT
+            else -> if (isOverride) PsiModifier.OPEN else null
+        }
+
+        if (modifier != null) psiModifiers = mutableSetOf(modifier)
+    }
 
     val visibility = when (visibility) {
         // Top-level private class has PACKAGE_LOCAL visibility in Java
@@ -63,3 +100,9 @@ internal fun FirMemberDeclaration.computeModifiers(isTopLevel: Boolean): Set<Str
 
     return psiModifiers?.also { it.add(visibility) } ?: setOf(visibility)
 }
+
+internal val ConeKotlinType.nullabilityForJava: ConeNullability
+    get() = if (isConstKind || isUnit) ConeNullability.UNKNOWN else nullability
+
+internal val ConeKotlinType.isConstKind
+    get() = (this as? ConeClassLikeType)?.toConstKind() != null

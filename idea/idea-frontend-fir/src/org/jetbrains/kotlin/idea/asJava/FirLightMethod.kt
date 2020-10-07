@@ -20,7 +20,10 @@ import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.psi
+import org.jetbrains.kotlin.fir.resolve.calls.isUnit
+import org.jetbrains.kotlin.fir.types.ConeNullability
 import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.idea.util.ifFalse
 import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
@@ -152,25 +155,39 @@ internal class FirLightMethodForFirNode(
 
     override fun getDefaultValue(): PsiAnnotationMemberValue? = null //TODO()
 
-    private val _name: String = (firFunction as? FirSimpleFunction)?.name?.identifier ?: ""
-    override fun getName(): String = _name
 
     private val _isConstructor = firFunction is FirConstructor
     override fun isConstructor(): Boolean = _isConstructor
 
+    private val _name: String? =
+        if (!isConstructor) (firFunction as? FirSimpleFunction)?.name?.identifier
+        else containingClass.name
+
+    override fun getName(): String = _name ?: ""
+
+    private val _modifiers: Set<String> by getAndAddLazy {
+        (firFunction as? FirMemberDeclaration)?.computeModifiers(isTopLevel = false) ?: emptySet()
+    }
+
+    private val _annotations: List<PsiAnnotation> by getAndAddLazy {
+        val nullability =
+            if (!isConstructor) firFunction.returnTypeRef.coneType.nullabilityForJava
+            else ConeNullability.UNKNOWN
+        firFunction.computeAnnotations(this, nullability)
+    }
+
     override fun getModifierList(): PsiModifierList = _modifierList
     private val _modifierList: PsiModifierList by getAndAddLazy {
-        val modifiers = (firFunction as? FirMemberDeclaration)?.computeModifiers(isTopLevel = false) ?: emptySet()
-        FirLightClassModifierList(this, modifiers)
+        FirLightClassModifierList(this, _modifiers, _annotations)
     }
 
     override fun getReturnType(): PsiType? = _returnType
-    private val _returnType: PsiType =
-        if (firFunction !is FirConstructor)
-            firFunction.returnTypeRef.coneType.asPsiType(firFunction.session, TypeMappingMode.DEFAULT, this)
-        else PsiType.VOID
-
-
+    private val _returnType: PsiType? = (firFunction is FirConstructor).ifFalse {
+        firFunction.returnTypeRef.coneType.run {
+            if (isUnit) PsiType.VOID
+            else asPsiType(firFunction.session, TypeMappingMode.DEFAULT, this@FirLightMethodForFirNode)
+        }
+    }
 
     override fun accept(visitor: PsiElementVisitor) {
         if (visitor is JavaElementVisitor) {
@@ -186,7 +203,9 @@ internal class FirLightMethodForFirNode(
             parameterListBuilder.addParameter(FirLightParameterForFirNode(it, this@FirLightMethodForFirNode))
         }
 
-
+        firFunction.annotations.map {
+            FirLightAnnotationForFirNode(it, this)
+        }
         //
 //        firFunction.typeParameters.map {
 //
@@ -199,15 +218,13 @@ internal class FirLightMethodForFirNode(
 //        firFunction.returnTypeRef
 
 
-
 //        methodDescriptor.extensionReceiverParameter?.let { receiver ->
 //            //delegate.addParameter(KtUltraLightParameterForDescriptor(receiver, support, this))
 //        }
 
 //        for (valueParameter in methodDescriptor.valueParameters) {
-            //delegate.addParameter(KtUltraLightParameterForDescriptor(valueParameter, support, this))
+        //delegate.addParameter(KtUltraLightParameterForDescriptor(valueParameter, support, this))
 //        }
-
 
 
         //We should force computations on all lazy delegates to release descriptor on the end of ctor call
