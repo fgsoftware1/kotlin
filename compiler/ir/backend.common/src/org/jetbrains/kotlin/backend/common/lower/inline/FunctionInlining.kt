@@ -144,7 +144,7 @@ class FunctionInlining(
             val typeArguments =
                 (0 until callSite.typeArgumentsCount).map {
                     typeParameters[it].symbol to callSite.getTypeArgument(it)
-                }.associate { it }
+                }.filter { it.first.owner.isReified }.associate { it }
             DeepCopyIrTreeWithSymbolsForInliner(typeArguments, parent)
         }
 
