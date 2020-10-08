@@ -127,21 +127,55 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
     private fun ownMethods(): List<KtLightMethod> {
         var methodIndex = METHOD_INDEX_BASE
         return classOrObject.withFir<FirRegularClass, List<KtLightMethod>> {
-            declarations.mapNotNull { declaration ->
+            val result = mutableListOf<KtLightMethod>()
+            for (declaration in declarations) {
 
-                if (declaration !is FirFunction<*>) return@mapNotNull null
+                if (declaration is FirMemberDeclaration && this.visibility == Visibilities.Private && isInterface) continue
 
-                if (declaration is FirMemberDeclaration &&
-                    declaration.visibility == Visibilities.Private && isInterface) return@mapNotNull null
+                if (declaration is FirSimpleFunction) {
+                    result.add(
+                        FirLightSimpleMethodForFirNode(
+                            firFunction = declaration,
+                            lightMemberOrigin = null,
+                            containingClass = this@FirLightClassForSourceDeclaration,
+                            methodIndex++
+                        )
+                    )
+                } else if (declaration is FirConstructor) {
+                    result.add(
+                        FirLightConstructorForFirNode(
+                            firFunction = declaration,
+                            lightMemberOrigin = null,
+                            containingClass = this@FirLightClassForSourceDeclaration,
+                            methodIndex++
+                        )
+                    )
+                } else if (declaration is FirProperty) {
 
-
-                FirLightMethodForFirNode(
-                    firFunction = declaration,
-                    lightMemberOrigin = null,
-                    containingClass = this@FirLightClassForSourceDeclaration,
-                    methodIndex++
-                )
+                    (declaration.getter)?.run {
+                        result.add(
+                            FirLightAccessorMethodForFirNode(
+                                firPropertyAccessor = this,
+                                firContainingProperty = declaration,
+                                lightMemberOrigin = null,
+                                containingClass = this@FirLightClassForSourceDeclaration
+                            )
+                        )
+                    }
+                    (declaration.setter)?.run {
+                        result.add(
+                            FirLightAccessorMethodForFirNode(
+                                firPropertyAccessor = this,
+                                firContainingProperty = declaration,
+                                lightMemberOrigin = null,
+                                containingClass = this@FirLightClassForSourceDeclaration
+                            )
+                        )
+                    }
+                }
             }
+
+            return result
         }
     }
 
