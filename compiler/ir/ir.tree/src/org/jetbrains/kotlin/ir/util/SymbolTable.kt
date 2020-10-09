@@ -384,8 +384,6 @@ class SymbolTable(
             IrAnonymousInitializerSymbolImpl(descriptor)
         )
 
-    fun listExistedScripts() = scriptSymbolTable.descriptorToSymbol.map { it.value }
-
     fun declareScript(
         descriptor: ScriptDescriptor,
         scriptFactory: (IrScriptSymbol) -> IrScript = { symbol: IrScriptSymbol ->
