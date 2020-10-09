@@ -36,6 +36,9 @@ internal fun ConeKotlinType.asPsiType(
     mode: TypeMappingMode,
     psiContext: PsiElement,
 ): PsiType {
+
+    if (this is ConeClassErrorType) return PsiType.NULL
+
     val canonicalSignature = session.jvmTypeMapper.mapType(this, mode).descriptor
     val signature = StringCharacterIterator(canonicalSignature)
     val javaType = SignatureParsing.parseTypeString(signature, StubBuildingVisitor.GUESSING_MAPPER)

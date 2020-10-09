@@ -143,7 +143,7 @@ internal class FirLightSimpleMethodForFirNode(
     methodIndex: Int,
 ) : FirLightNotConstructorMethodForFirNode(firFunction, lightMemberOrigin, containingClass, methodIndex) {
 
-    private val _name: String? = firFunction.name.identifier
+    private val _name: String? = firFunction.name.asString()
 
     override fun getName(): String = _name ?: ""
 }
