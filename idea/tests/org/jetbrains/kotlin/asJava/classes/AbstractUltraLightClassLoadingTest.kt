@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.asJava.classes
 
 import com.intellij.testFramework.LightProjectDescriptor
-import org.jetbrains.kotlin.asJava.KotlinAsJavaSupport
 import org.jetbrains.kotlin.asJava.LightClassGenerationSupport
 import org.jetbrains.kotlin.asJava.PsiClassRenderer
 import org.jetbrains.kotlin.asJava.PsiClassRenderer.renderClass
@@ -19,26 +18,11 @@ import org.jetbrains.kotlin.test.InTextDirectivesUtils
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import java.io.File
 
-abstract class AbstractFirClassLoadingTest : AbstractUltraLightClassLoadingTest() {
-
-    override fun doTest(testDataPath: String) {
-
-        val testDataFile = File(testDataPath)
-        val sourceText = testDataFile.readText()
-        val file = myFixture.addFileToProject(testDataPath, sourceText) as KtFile
-
-        val classFabric = KotlinAsJavaSupport.getInstance(project)
-        val lightClasses = UltraLightChecker.allClasses(file).mapNotNull { classFabric.getLightClass(it) }
-
-        checkByJavaFile(testDataPath, lightClasses)
-    }
-}
-
 abstract class AbstractUltraLightClassLoadingTest : KotlinLightCodeInsightFixtureTestCase() {
     override fun getProjectDescriptor(): LightProjectDescriptor = KotlinWithJdkAndRuntimeLightProjectDescriptor.INSTANCE
 
     protected fun checkByJavaFile(testDataPath: String, lightClasses: List<KtLightClass>) {
-        val expectedTextFile = File(testDataPath.replaceFirst("\\.kt\$".toRegex(), ".java"))
+        val expectedTextFile = KotlinTestUtils.replaceExtension(File(testDataPath), "java")
         assertTrue(expectedTextFile.exists())
 
         val extendedTypeRendererOld = PsiClassRenderer.extendedTypeRenderer
