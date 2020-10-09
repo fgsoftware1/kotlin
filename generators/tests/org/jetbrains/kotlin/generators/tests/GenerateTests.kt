@@ -1219,6 +1219,10 @@ fun main(args: Array<String>) {
             testClass<AbstractFirLightClassTest> {
                 model("asJava/lightClasses", excludeDirs = listOf("delegation", "script"), pattern = KT_WITHOUT_DOTS_IN_NAME)
             }
+
+            testClass<AbstractFirClassLoadingTest> {
+                model("asJava/ultraLightClasses", pattern = KT_OR_KTS)
+            }
         }
 
         testGroup("idea/idea-completion/tests", "idea/idea-completion/testData") {
