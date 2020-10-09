@@ -29,7 +29,6 @@ class StaticMembersLowering(val context: JsIrBackendContext) : DeclarationTransf
                 if (declaration.isExported(context)) {
                     context.additionalExportedDeclarations.add(declaration)
                 }
-                irClass.file.declarations += declaration
                 var extractedUnder = declaration
                 var newContainer = declaration.parent
                 while (newContainer is IrDeclaration && newContainer != irClass.file) {
