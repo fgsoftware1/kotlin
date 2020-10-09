@@ -93,7 +93,7 @@ internal class FirLightParameterForFirNode(
     // This means that all data that depends on descriptor evaluated in ctor so the descriptor will be released on the end.
     // Be aware to save descriptor in class instance or any depending references
 
-    private val _name: String = parameter.name.identifier
+    private val _name: String = parameter.name.asString()
     override fun getName(): String = _name
 
     private val lazyInitializers = mutableListOf<Lazy<*>>()
