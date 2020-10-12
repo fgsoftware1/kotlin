@@ -57,7 +57,7 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
     }
 
     override fun getModifierList(): PsiModifierList? = _modifierList
-    override fun getOwnFields(): List<KtLightField> = emptyList() //TODO()
+    override fun getOwnFields(): List<KtLightField> = _ownFields
     override fun getOwnMethods(): List<PsiMethod> = _ownMethods.value
     override fun isDeprecated(): Boolean = false //TODO()
     override fun getNameIdentifier(): KtLightIdentifier? = null //TODO()
@@ -65,7 +65,26 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
     override fun getImplementsList(): PsiReferenceList? = _implementsList
     override fun getTypeParameterList(): PsiTypeParameterList? = null //TODO()
     override fun getTypeParameters(): Array<PsiTypeParameter> = emptyArray() //TODO()
-    override fun getOwnInnerClasses(): List<PsiClass> = emptyList() //TODO()
+
+    override fun getOwnInnerClasses(): List<PsiClass> {
+        val result = ArrayList<PsiClass>()
+
+        // workaround for ClassInnerStuffCache not supporting classes with null names, see KT-13927
+        // inner classes with null names can't be searched for and can't be used from java anyway
+        // we can't prohibit creating light classes with null names either since they can contain members
+        classOrObject.declarations.forEach { declaration ->
+            if (declaration is KtClassOrObject && declaration.name != null) {
+                result.add(FirLightClassForSourceDeclaration(declaration))
+            }
+        }
+
+
+        //TODO
+        //if (classOrObject.hasInterfaceDefaultImpls) {
+        //    result.add(KtLightClassForInterfaceDefaultImpls(classOrObject))
+        //}
+        return result
+    }
 
     override fun getTextOffset() = kotlinOrigin.textOffset
     override fun getStartOffsetInParent() = kotlinOrigin.startOffsetInParent
@@ -187,6 +206,85 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
             )
         }, false
     )
+
+    private val _ownFields: List<KtLightField> by lazyPub {
+
+        this.classOrObject.withFir<FirRegularClass, List<KtLightField>> {
+
+            val result = mutableListOf<KtLightField>()
+
+            companionObject?.run {
+                result.add(FirLightFieldForFirCompanionObjectNode(this, this@FirLightClassForSourceDeclaration, null))
+            }
+
+            declarations.filterIsInstance<FirProperty>().filter { it.hasBackingField }.mapTo(result) {
+                FirLightFieldForFirPropertyNode(it, this@FirLightClassForSourceDeclaration, null)
+            }
+
+            result
+        }
+
+//        this.classOrObject.companionObjects.firstOrNull()?.let { companion ->
+//            result.add(
+//                KtUltraLightFieldForSourceDeclaration(
+//                    companion,
+//                    generateUniqueMemberName(companion.name.orEmpty(), usedNames),
+//                    this,
+//                    support,
+//                    setOf(PsiModifier.STATIC, PsiModifier.FINAL, companion.simpleVisibility())
+//                )
+//            )
+//
+//            for (property in companion.declarations.filterIsInstance<KtProperty>()) {
+//                if (isInterface && !property.isConstOrJvmField()) continue
+//                membersBuilder.createPropertyField(property, usedNames, true)?.let(result::add)
+//            }
+//        }
+//
+//        fun ArrayList<KtLightField>.updateWithCompilerPlugins() = also {
+//            val lazyDescriptor = lazy { getDescriptor() }
+//            project.applyCompilerPlugins {
+//                it.interceptFieldsBuilding(
+//                    declaration = kotlinOrigin,
+//                    descriptor = lazyDescriptor,
+//                    containingDeclaration = this@KtUltraLightClass,
+//                    fieldsList = result
+//                )
+//            }
+//        }
+//
+//        if (isAnnotationType) return@lazyPub result.updateWithCompilerPlugins()
+//
+//        for (parameter in propertyParameters()) {
+//            membersBuilder.createPropertyField(parameter, usedNames, forceStatic = false)?.let(result::add)
+//        }
+//
+//        if (!isInterface) {
+//            val isCompanion = this.classOrObject is KtObjectDeclaration && this.classOrObject.isCompanion()
+//            for (property in this.classOrObject.declarations.filterIsInstance<KtProperty>()) {
+//                // All fields for companion object of classes are generated to the containing class
+//                // For interfaces, only @JvmField-annotated properties are generated to the containing class
+//                // Probably, the same should work for const vals but it doesn't at the moment (see KT-28294)
+//                if (isCompanion && (containingClass?.isInterface == false || property.isJvmField())) continue
+//
+//                membersBuilder.createPropertyField(property, usedNames, forceStatic = this.classOrObject is KtObjectDeclaration)
+//                    ?.let(result::add)
+//            }
+//        }
+//
+//        if (isNamedObject() && !this.classOrObject.isLocal) {
+//            result.add(
+//                KtUltraLightFieldForSourceDeclaration(
+//                    this.classOrObject,
+//                    JvmAbi.INSTANCE_FIELD,
+//                    this,
+//                    support,
+//                    setOf(PsiModifier.STATIC, PsiModifier.FINAL, PsiModifier.PUBLIC)
+//                )
+//            )
+//        }
+        //error { " "}
+    }
 
     private val _containingFile: PsiFile by lazyPub {
         val containingClass =

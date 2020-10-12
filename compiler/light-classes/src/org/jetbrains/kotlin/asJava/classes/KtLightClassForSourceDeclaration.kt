@@ -560,7 +560,7 @@ fun KtClassOrObject.shouldNotBeVisibleAsLightClass(): Boolean {
         return true
     }
 
-    if (safeIsLocal()) {
+    if (isLocal) {
         if (containingFile.virtualFile == null) return true
         if (hasParseErrorsAround(this) || PsiUtilCore.hasErrorElementChild(this)) return true
     }

@@ -27,7 +27,7 @@ class IDEKotlinAsJavaFirSupport(project: Project) : IDEKotlinAsJavaSupport(proje
     override fun createLightClassForScript(script: KtScript): KtLightClass? = null
 
     override fun createLightClassForSourceDeclaration(classOrObject: KtClassOrObject): KtLightClass? =
-        classOrObject.shouldNotBeVisibleAsLightClass().ifFalse {
+        (classOrObject.isLocal /*TODO*/ || classOrObject.shouldNotBeVisibleAsLightClass()).ifFalse {
             CachedValuesManager.getCachedValue(classOrObject) {
                 CachedValueProvider.Result
                     .create(

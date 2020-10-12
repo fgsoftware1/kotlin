@@ -64,6 +64,8 @@ abstract class FirLightMemberImpl<T : PsiMember>(
                 lightMemberOrigin?.isEquivalentTo(another) == true ||
                 another is KtLightMember<*> && lightMemberOrigin?.isEquivalentTo(another.lightMemberOrigin) == true
     }
+
+    override fun hashCode(): Int = name.hashCode()
 }
 
 internal abstract class FirLightMethod(
@@ -108,7 +110,13 @@ internal abstract class FirLightMethod(
         return kotlinOrigin == other.kotlinOrigin
     }
 
-    override fun hashCode(): Int = name.hashCode()
+    override fun accept(visitor: PsiElementVisitor) {
+        if (visitor is JavaElementVisitor) {
+            visitor.visitMethod(this)
+        } else {
+            visitor.visitElement(this)
+        }
+    }
 }
 
 internal class FirLightAccessorMethodForFirNode(
@@ -257,15 +265,6 @@ internal abstract class FirLightMethodForFirNode(
     protected val modifiers: Set<String> by getAndAddLazy {
         (firFunction as? FirMemberDeclaration)?.computeModifiers(isTopLevel = false) ?: emptySet()
     }
-
-    override fun accept(visitor: PsiElementVisitor) {
-        if (visitor is JavaElementVisitor) {
-            visitor.visitMethod(this)
-        } else {
-            visitor.visitElement(this)
-        }
-    }
-
 
     init {
         firFunction.valueParameters.map {

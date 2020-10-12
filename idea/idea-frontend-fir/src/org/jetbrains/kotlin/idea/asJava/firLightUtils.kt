@@ -15,7 +15,6 @@ import com.intellij.psi.impl.compiled.SignatureParsing
 import com.intellij.psi.impl.compiled.StubBuildingVisitor
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
-import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirSession
@@ -23,9 +22,8 @@ import org.jetbrains.kotlin.fir.backend.jvm.jvmTypeMapper
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.calls.isUnit
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
-import org.jetbrains.kotlin.types.typeUtil.TypeNullability
+import org.jetbrains.kotlin.name.SpecialNames
 import java.text.StringCharacterIterator
 
 internal fun <L : Any> L.invalidAccess(): Nothing =
@@ -38,6 +36,10 @@ internal fun ConeKotlinType.asPsiType(
 ): PsiType {
 
     if (this is ConeClassErrorType) return PsiType.NULL
+    if (this is ConeClassLikeType) {
+        val classId = classId
+        if (classId != null && classId.shortClassName.asString() == SpecialNames.ANONYMOUS) return PsiType.NULL
+    }
 
     val canonicalSignature = session.jvmTypeMapper.mapType(this, mode).descriptor
     val signature = StringCharacterIterator(canonicalSignature)
@@ -80,31 +82,36 @@ internal fun FirAnnotatedDeclaration.computeAnnotations(
     return result
 }
 
-internal fun FirMemberDeclaration.computeModifiers(isTopLevel: Boolean): Set<String> {
-
-    var psiModifiers: MutableSet<String>? = null
+internal fun FirMemberDeclaration.computeModality(isTopLevel: Boolean): Set<String> {
+    val psiModifiers = mutableSetOf<String>()
     if (this !is FirConstructor) {
         val modifier = when (modality) {
             Modality.FINAL -> PsiModifier.FINAL
-            Modality.OPEN -> PsiModifier.OPEN
+            Modality.OPEN -> null //PsiModifier.OPEN
             Modality.ABSTRACT -> PsiModifier.ABSTRACT
             Modality.SEALED -> PsiModifier.ABSTRACT
             else -> if (isOverride) PsiModifier.OPEN else null
         }
 
-        if (modifier != null) psiModifiers = mutableSetOf(modifier)
-    }
+        if (modifier != null) psiModifiers.add(modifier)
 
-    val visibility = when (visibility) {
+        if (!isTopLevel && this is FirRegularClass && !isInner) psiModifiers.add(PsiModifier.STATIC)
+    }
+    return psiModifiers
+}
+
+internal fun FirMemberDeclaration.computeVisibility(isTopLevel: Boolean): String {
+    return when (this.visibility) {
         // Top-level private class has PACKAGE_LOCAL visibility in Java
         // Nested private class has PRIVATE visibility
         Visibilities.Private -> if (isTopLevel) PsiModifier.PACKAGE_LOCAL else PsiModifier.PRIVATE
         Visibilities.Protected -> PsiModifier.PROTECTED
         else -> PsiModifier.PUBLIC
     }
-
-    return psiModifiers?.also { it.add(visibility) } ?: setOf(visibility)
 }
+
+internal fun FirMemberDeclaration.computeModifiers(isTopLevel: Boolean): Set<String> =
+    computeModality(isTopLevel) + computeVisibility(isTopLevel)
 
 internal val ConeKotlinType.nullabilityForJava: ConeNullability
     get() = if (isConstKind || isUnit) ConeNullability.UNKNOWN else nullability
