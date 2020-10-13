@@ -42,6 +42,7 @@ import org.jetbrains.kotlin.psi.debugText.getDebugText
 import org.jetbrains.kotlin.psi.psiUtil.isObjectLiteral
 import org.jetbrains.kotlin.psi.stubs.KotlinClassOrObjectStub
 import javax.swing.Icon
+import kotlin.collections.ArrayList
 
 open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassOrObject) :
     FirLightClassBase(classOrObject.manager),
@@ -49,9 +50,13 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
 
     private val _modifierList: PsiModifierList? by lazyPub {
         classOrObject.withFir<FirMemberDeclaration, PsiModifierList> {
-            val modifiers = (this as? FirMemberDeclaration)?.computeModifiers(classOrObject.isTopLevel())
-                ?: emptySet()
+            val memberModifiers = this.computeSimpleModality() + computeVisibility(classOrObject.isTopLevel())
+
+            val staticNeeded = !classOrObject.isTopLevel() && this is FirRegularClass && !isInner
+            val modifiers = staticNeeded.ifTrue { memberModifiers + PsiModifier.STATIC } ?: memberModifiers
+
             val annotations = computeAnnotations(this@FirLightClassForSourceDeclaration)
+
             FirLightClassModifierList(this@FirLightClassForSourceDeclaration, modifiers, annotations)
         }
     }
@@ -143,60 +148,17 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
         return listBuilder
     }
 
-    private fun ownMethods(): List<KtLightMethod> {
-        var methodIndex = METHOD_INDEX_BASE
-        return classOrObject.withFir<FirRegularClass, List<KtLightMethod>> {
-            val result = mutableListOf<KtLightMethod>()
-            for (declaration in declarations) {
+    private fun ownMethods(): List<KtLightMethod> =
+        classOrObject.withFir<FirRegularClass, List<KtLightMethod>> {
 
-                if (declaration is FirMemberDeclaration && this.visibility == Visibilities.Private && isInterface) continue
-
-                if (declaration is FirSimpleFunction) {
-                    result.add(
-                        FirLightSimpleMethodForFirNode(
-                            firFunction = declaration,
-                            lightMemberOrigin = null,
-                            containingClass = this@FirLightClassForSourceDeclaration,
-                            methodIndex++
-                        )
-                    )
-                } else if (declaration is FirConstructor) {
-                    result.add(
-                        FirLightConstructorForFirNode(
-                            firFunction = declaration,
-                            lightMemberOrigin = null,
-                            containingClass = this@FirLightClassForSourceDeclaration,
-                            methodIndex++
-                        )
-                    )
-                } else if (declaration is FirProperty) {
-
-                    (declaration.getter)?.run {
-                        result.add(
-                            FirLightAccessorMethodForFirNode(
-                                firPropertyAccessor = this,
-                                firContainingProperty = declaration,
-                                lightMemberOrigin = null,
-                                containingClass = this@FirLightClassForSourceDeclaration
-                            )
-                        )
-                    }
-                    (declaration.setter)?.run {
-                        result.add(
-                            FirLightAccessorMethodForFirNode(
-                                firPropertyAccessor = this,
-                                firContainingProperty = declaration,
-                                lightMemberOrigin = null,
-                                containingClass = this@FirLightClassForSourceDeclaration
-                            )
-                        )
-                    }
-                }
+            val visibleDeclarations = declarations.filterNot {
+                it is FirMemberDeclaration && this.visibility == Visibilities.Private && isInterface
             }
 
-            return result
+            mutableListOf<KtLightMethod>().also {
+                createMethods(visibleDeclarations, isTopLevel = false, it)
+            }
         }
-    }
 
     private val _ownMethods: CachedValue<List<KtLightMethod>> = CachedValuesManager.getManager(project).createCachedValue(
         {
@@ -214,15 +176,19 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
             val result = mutableListOf<KtLightField>()
 
             companionObject?.run {
-                result.add(FirLightFieldForFirCompanionObjectNode(this, this@FirLightClassForSourceDeclaration, null))
+                result.add(FirLightFieldForFirObjectNode(this, this@FirLightClassForSourceDeclaration, null))
             }
 
-            declarations.filterIsInstance<FirProperty>().filter { it.hasBackingField }.mapTo(result) {
-                FirLightFieldForFirPropertyNode(it, this@FirLightClassForSourceDeclaration, null)
+            val isNamedObject = classOrObject is KtObjectDeclaration && !classOrObject.isCompanion()
+            if (isNamedObject && !classOrObject.isLocal) {
+                result.add(FirLightFieldForFirObjectNode(this, this@FirLightClassForSourceDeclaration, null))
             }
+
+            createFields(declarations, isTopLevel = false, result)
 
             result
         }
+
 
 //        this.classOrObject.companionObjects.firstOrNull()?.let { companion ->
 //            result.add(
@@ -241,19 +207,6 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
 //            }
 //        }
 //
-//        fun ArrayList<KtLightField>.updateWithCompilerPlugins() = also {
-//            val lazyDescriptor = lazy { getDescriptor() }
-//            project.applyCompilerPlugins {
-//                it.interceptFieldsBuilding(
-//                    declaration = kotlinOrigin,
-//                    descriptor = lazyDescriptor,
-//                    containingDeclaration = this@KtUltraLightClass,
-//                    fieldsList = result
-//                )
-//            }
-//        }
-//
-//        if (isAnnotationType) return@lazyPub result.updateWithCompilerPlugins()
 //
 //        for (parameter in propertyParameters()) {
 //            membersBuilder.createPropertyField(parameter, usedNames, forceStatic = false)?.let(result::add)
@@ -272,18 +225,6 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
 //            }
 //        }
 //
-//        if (isNamedObject() && !this.classOrObject.isLocal) {
-//            result.add(
-//                KtUltraLightFieldForSourceDeclaration(
-//                    this.classOrObject,
-//                    JvmAbi.INSTANCE_FIELD,
-//                    this,
-//                    support,
-//                    setOf(PsiModifier.STATIC, PsiModifier.FINAL, PsiModifier.PUBLIC)
-//                )
-//            )
-//        }
-        //error { " "}
     }
 
     private val _containingFile: PsiFile by lazyPub {
@@ -319,7 +260,7 @@ open class FirLightClassForSourceDeclaration(private val classOrObject: KtClassO
 
     override fun getName(): String = classOrObject.nameAsName?.asString() ?: ""
 
-    inline fun <reified T : FirDeclaration, K> KtClassOrObject.withFir(body: T.() -> K): K {
+    protected inline fun <reified T : FirDeclaration, K> KtClassOrObject.withFir(body: T.() -> K): K {
         val resolveState = LowLevelFirApiFacade.getResolveStateFor(this)
         return LowLevelFirApiFacade.withFirDeclaration(this, resolveState, FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE) {
             require(it is T)

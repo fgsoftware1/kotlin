@@ -32,7 +32,13 @@ import org.jetbrains.kotlin.analyzer.KotlinModificationTrackerService
 import org.jetbrains.kotlin.asJava.classes.KotlinClassInnerStuffCache
 import org.jetbrains.kotlin.asJava.classes.KotlinClassInnerStuffCache.Companion.processDeclarationsInEnum
 import org.jetbrains.kotlin.asJava.classes.KtLightClass
+import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_BASE
+import org.jetbrains.kotlin.asJava.elements.KtLightField
+import org.jetbrains.kotlin.asJava.elements.KtLightMethod
+import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.idea.KotlinLanguage
+import java.util.*
 
 abstract class FirLightClassBase protected constructor(manager: PsiManager) : LightElement(manager, KotlinLanguage.INSTANCE), PsiClass,
     KtLightClass, PsiExtensibleClass {
@@ -135,6 +141,114 @@ abstract class FirLightClassBase protected constructor(manager: PsiManager) : Li
             visitor.visitClass(this)
         } else {
             visitor.visitElement(this)
+        }
+    }
+
+    protected fun createMethods(declarations: List<FirDeclaration>, isTopLevel: Boolean, result: MutableList<KtLightMethod>) {
+        //TODO isHiddenByDeprecation
+        var methodIndex = METHOD_INDEX_BASE
+        for (declaration in declarations) {
+
+            if (declaration is FirFunction<*> && declaration.hasAnnotation("kotlin.jvm.JvmSynthetic")) continue
+
+            when (declaration) {
+                is FirSimpleFunction -> {
+                    result.add(
+                        FirLightSimpleMethodForFirNode(
+                            firFunction = declaration,
+                            lightMemberOrigin = null,
+                            containingClass = this@FirLightClassBase,
+                            isTopLevel = isTopLevel,
+                            methodIndex = methodIndex++
+                        )
+                    )
+
+                    if (declaration.hasAnnotation("kotlin.jvm.JvmOverloads")) {
+                        val skipMask = BitSet(declaration.valueParameters.size)
+
+                        for (i in declaration.valueParameters.size - 1 downTo 0) {
+
+                            if (declaration.valueParameters[i].defaultValue == null) continue
+
+                            skipMask.set(i)
+
+                            result.add(
+                                FirLightSimpleMethodForFirNode(
+                                    firFunction = declaration,
+                                    lightMemberOrigin = null,
+                                    containingClass = this@FirLightClassBase,
+                                    isTopLevel = isTopLevel,
+                                    methodIndex = methodIndex++,
+                                    argumentsSkipMask = skipMask
+                                )
+                            )
+                        }
+                    }
+                }
+                is FirConstructor -> {
+                    result.add(
+                        FirLightConstructorForFirNode(
+                            firFunction = declaration,
+                            lightMemberOrigin = null,
+                            containingClass = this@FirLightClassBase,
+                            methodIndex++
+                        )
+                    )
+                }
+                is FirProperty -> {
+
+                    if (declaration.hasAnnotation("kotlin.jvm.JvmField")) continue
+
+                    val getter = declaration.getter?.takeIf {
+                        !declaration.hasAnnotation("kotlin.jvm.JvmSynthetic", AnnotationUseSiteTarget.PROPERTY_GETTER)
+                    }
+
+                    if (getter != null) {
+                        result.add(
+                            FirLightAccessorMethodForFirNode(
+                                firPropertyAccessor = getter,
+                                firContainingProperty = declaration,
+                                lightMemberOrigin = null,
+                                containingClass = this@FirLightClassBase,
+                                isTopLevel = isTopLevel
+                            )
+                        )
+                    }
+
+                    val setter = declaration.setter?.takeIf {
+                        !declaration.hasAnnotation("kotlin.jvm.JvmSynthetic", AnnotationUseSiteTarget.PROPERTY_SETTER)
+                    }
+
+                    if (setter != null) {
+                        result.add(
+                            FirLightAccessorMethodForFirNode(
+                                firPropertyAccessor = setter,
+                                firContainingProperty = declaration,
+                                lightMemberOrigin = null,
+                                containingClass = this@FirLightClassBase,
+                                isTopLevel = isTopLevel
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    protected fun createFields(declarations: List<FirDeclaration>, isTopLevel: Boolean, result: MutableList<KtLightField>) {
+        //TODO isHiddenByDeprecation
+        for (declaration in declarations) {
+            if (declaration !is FirProperty) continue
+            if (!declaration.hasBackingField) continue
+            if (declaration.hasAnnotation("kotlin.jvm.JvmSynthetic")) continue
+            result.add(
+                FirLightFieldForFirPropertyNode(
+                    firProperty = declaration,
+                    containingClass = this@FirLightClassBase,
+                    lightMemberOrigin = null,
+                    isTopLevel = isTopLevel
+                )
+            )
         }
     }
 }

@@ -5,18 +5,18 @@
 
 package org.jetbrains.kotlin.idea.asJava
 
-import com.intellij.psi.PsiAnnotation
-import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiModifier
-import com.intellij.psi.PsiType
+import com.intellij.psi.*
 import com.intellij.psi.impl.cache.TypeInfo
 import com.intellij.psi.impl.compiled.ClsTypeElementImpl
 import com.intellij.psi.impl.compiled.SignatureParsing
 import com.intellij.psi.impl.compiled.StubBuildingVisitor
 import org.jetbrains.annotations.NotNull
 import org.jetbrains.annotations.Nullable
+import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_BASE
+import org.jetbrains.kotlin.asJava.elements.KtLightMethod
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
+import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.jvm.jvmTypeMapper
 import org.jetbrains.kotlin.fir.declarations.*
@@ -25,9 +25,20 @@ import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
 import org.jetbrains.kotlin.name.SpecialNames
 import java.text.StringCharacterIterator
+import java.util.*
 
 internal fun <L : Any> L.invalidAccess(): Nothing =
     error("Cls delegate shouldn't be accessed for fir light classes! Qualified name: ${javaClass.name}")
+
+
+private fun PsiElement.nonExistentType() = JavaPsiFacade.getElementFactory(project)
+    .createTypeFromText("error.NonExistentClass", this)
+
+internal fun FirTypeRef.asPsiType(
+    session: FirSession,
+    mode: TypeMappingMode,
+    psiContext: PsiElement,
+): PsiType = coneTypeSafe?.asPsiType(session, mode, psiContext) ?: psiContext.nonExistentType()
 
 internal fun ConeKotlinType.asPsiType(
     session: FirSession,
@@ -35,7 +46,7 @@ internal fun ConeKotlinType.asPsiType(
     psiContext: PsiElement,
 ): PsiType {
 
-    if (this is ConeClassErrorType) return PsiType.NULL
+    if (this is ConeClassErrorType) return psiContext.nonExistentType()
     if (this is ConeClassLikeType) {
         val classId = classId
         if (classId != null && classId.shortClassName.asString() == SpecialNames.ANONYMOUS) return PsiType.NULL
@@ -53,11 +64,11 @@ internal fun ConeKotlinType.asPsiType(
 
 internal fun FirAnnotatedDeclaration.computeAnnotations(
     parent: PsiElement,
-    nullability: ConeNullability = ConeNullability.UNKNOWN
+    nullability: ConeNullability = ConeNullability.UNKNOWN,
+    annotationUseSiteTarget: AnnotationUseSiteTarget? = null
 ): List<PsiAnnotation> {
 
     if (nullability == ConeNullability.UNKNOWN && annotations.isEmpty()) return emptyList()
-
     val nullabilityAnnotation = when (nullability) {
         ConeNullability.NOT_NULL -> NotNull::class.java
         ConeNullability.NULLABLE -> Nullable::class.java
@@ -71,8 +82,9 @@ internal fun FirAnnotatedDeclaration.computeAnnotations(
     }
 
     val result = mutableListOf<PsiAnnotation>()
-    annotations.mapTo(result) {
-        FirLightAnnotationForFirNode(it, parent)
+    for (annotation in annotations) {
+        if (annotationUseSiteTarget != null && annotationUseSiteTarget != annotation.useSiteTarget) continue
+        result.add(FirLightAnnotationForFirNode(annotation, parent))
     }
 
     if (nullabilityAnnotation != null) {
@@ -82,22 +94,28 @@ internal fun FirAnnotatedDeclaration.computeAnnotations(
     return result
 }
 
-internal fun FirMemberDeclaration.computeModality(isTopLevel: Boolean): Set<String> {
-    val psiModifiers = mutableSetOf<String>()
-    if (this !is FirConstructor) {
-        val modifier = when (modality) {
-            Modality.FINAL -> PsiModifier.FINAL
-            Modality.OPEN -> null //PsiModifier.OPEN
-            Modality.ABSTRACT -> PsiModifier.ABSTRACT
-            Modality.SEALED -> PsiModifier.ABSTRACT
-            else -> if (isOverride) PsiModifier.OPEN else null
-        }
+internal fun FirMemberDeclaration.computeSimpleModality(): Set<String> {
+    require(this !is FirConstructor)
 
-        if (modifier != null) psiModifiers.add(modifier)
-
-        if (!isTopLevel && this is FirRegularClass && !isInner) psiModifiers.add(PsiModifier.STATIC)
+    val modifier = when (modality) {
+        Modality.FINAL -> PsiModifier.FINAL
+        Modality.ABSTRACT -> PsiModifier.ABSTRACT
+        Modality.SEALED -> PsiModifier.ABSTRACT
+        else -> null
     }
-    return psiModifiers
+
+    return modifier?.let { setOf(it) } ?: emptySet()
+}
+
+internal fun FirMemberDeclaration.computeModalityForMethod(isTopLevel: Boolean): Set<String> {
+    require(this !is FirConstructor)
+
+    val simpleModifier = computeSimpleModality()
+
+    val withNative = if (isExternal) simpleModifier + PsiModifier.NATIVE else simpleModifier
+    val withTopLevelStatic = if (isTopLevel) withNative + PsiModifier.STATIC else withNative
+
+    return withTopLevelStatic
 }
 
 internal fun FirMemberDeclaration.computeVisibility(isTopLevel: Boolean): String {
@@ -110,11 +128,17 @@ internal fun FirMemberDeclaration.computeVisibility(isTopLevel: Boolean): String
     }
 }
 
-internal fun FirMemberDeclaration.computeModifiers(isTopLevel: Boolean): Set<String> =
-    computeModality(isTopLevel) + computeVisibility(isTopLevel)
-
-internal val ConeKotlinType.nullabilityForJava: ConeNullability
-    get() = if (isConstKind || isUnit) ConeNullability.UNKNOWN else nullability
+internal val FirTypeRef?.nullabilityForJava: ConeNullability
+    get() = this?.coneTypeSafe?.run { if (isConstKind || isUnit) ConeNullability.UNKNOWN else nullability }
+        ?: ConeNullability.UNKNOWN
 
 internal val ConeKotlinType.isConstKind
     get() = (this as? ConeClassLikeType)?.toConstKind() != null
+
+internal fun FirAnnotatedDeclaration.hasAnnotation(fqName: String, site: AnnotationUseSiteTarget? = null): Boolean =
+    annotations.any {
+        (site == null || it.useSiteTarget == site) &&
+                it.typeRef.coneTypeSafe?.classId?.asSingleFqName()?.asString() == fqName
+    }
+
+internal val FirTypeRef.coneTypeSafe: ConeKotlinType? get() = coneTypeSafe()

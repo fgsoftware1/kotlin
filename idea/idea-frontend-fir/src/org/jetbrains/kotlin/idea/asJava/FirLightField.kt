@@ -19,7 +19,6 @@ import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.KtLightField
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.psi
-import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.idea.KotlinLanguage
@@ -30,7 +29,7 @@ import javax.swing.Icon
 internal abstract class FirLightField protected constructor(
     private val containingClass: KtLightClass,
     lightMemberOrigin: LightMemberOrigin?,
-    ) : FirLightMemberImpl<PsiField>(lightMemberOrigin, containingClass), KtLightField{
+) : FirLightMemberImpl<PsiField>(lightMemberOrigin, containingClass), KtLightField {
 
     override val clsDelegate: PsiField get() = invalidAccess()
 
@@ -85,6 +84,7 @@ internal abstract class FirLightField protected constructor(
         return kotlinOrigin == other.kotlinOrigin
     }
 
+    override fun hashCode(): Int = name.hashCode()
 
     override fun accept(visitor: PsiElementVisitor) {
         if (visitor is JavaElementVisitor) {
@@ -98,7 +98,8 @@ internal abstract class FirLightField protected constructor(
 internal class FirLightFieldForFirPropertyNode(
     firProperty: FirProperty,
     containingClass: FirLightClassBase,
-    lightMemberOrigin: LightMemberOrigin?
+    lightMemberOrigin: LightMemberOrigin?,
+    isTopLevel: Boolean
 ) : FirLightField(containingClass, lightMemberOrigin) {
 
     init {
@@ -111,22 +112,29 @@ internal class FirLightFieldForFirPropertyNode(
     private inline fun <T> getAndAddLazy(crossinline initializer: () -> T): Lazy<T> =
         lazyPub { initializer() }.also { lazyInitializers.add(it) }
 
-    private val _returnedType: PsiType? by getAndAddLazy {
-        firProperty.returnTypeRef.coneType.asPsiType(
+    private val _returnedType: PsiType by getAndAddLazy {
+        firProperty.returnTypeRef.asPsiType(
             firProperty.session,
             TypeMappingMode.DEFAULT,
             this@FirLightFieldForFirPropertyNode
         )
     }
-    override fun getType(): PsiType = _returnedType ?: PsiType.NULL
+
+    override fun getType(): PsiType = _returnedType
 
     private val _name = firProperty.name.asString()
     override fun getName(): String = _name
 
     private val _modifierList: PsiModifierList by lazyPub {
-        val modifiers = firProperty.computeModality(isTopLevel = false) + PsiModifier.PRIVATE + PsiModifier.FINAL
+
+        val basicModifiers = firProperty.computeModalityForMethod(isTopLevel)
+        val modifiers = if (!firProperty.hasAnnotation("kotlin.jvm.JvmField"))
+            basicModifiers + PsiModifier.PRIVATE + PsiModifier.FINAL
+        else if (firProperty.isVal) basicModifiers + PsiModifier.FINAL else basicModifiers
+
         FirLightClassModifierList(this, modifiers, emptyList())
     }
+
     override fun getModifierList(): PsiModifierList? = _modifierList
 
 
@@ -141,25 +149,23 @@ internal class FirLightFieldForFirPropertyNode(
     }
 }
 
-internal class FirLightFieldForFirCompanionObjectNode(
+internal class FirLightFieldForFirObjectNode(
     firObjectNode: FirRegularClass,
     containingClass: KtLightClass,
-    lightMemberOrigin: LightMemberOrigin?
+    lightMemberOrigin: LightMemberOrigin?,
 ) : FirLightField(containingClass, lightMemberOrigin) {
-
-    init {
-        require(firObjectNode.isCompanion)
-    }
 
     override val kotlinOrigin: KtDeclaration? = firObjectNode.psi as? KtDeclaration
 
-    private val _name = firObjectNode.name.asString()
+    private val _name = if (firObjectNode.isCompanion) firObjectNode.name.asString() else "INSTANCE"
     override fun getName(): String = _name
 
     private val _modifierList: PsiModifierList by lazyPub {
         val modifiers = setOf(firObjectNode.computeVisibility(isTopLevel = false), PsiModifier.STATIC, PsiModifier.FINAL)
-        FirLightClassModifierList(this, modifiers, emptyList())
+        val notNullAnnotation = FirLightSimpleAnnotation("org.jetbrains.annotations.NotNull", this)
+        FirLightClassModifierList(this, modifiers, listOf(notNullAnnotation))
     }
+
     override fun getModifierList(): PsiModifierList? = _modifierList
 
     private val _type: PsiType = firObjectNode.run {
@@ -167,7 +173,7 @@ internal class FirLightFieldForFirCompanionObjectNode(
             symbol.toLookupTag(),
             typeParameters.map { ConeTypeParameterTypeImpl(it.symbol.toLookupTag(), isNullable = false) }.toTypedArray(),
             isNullable = false
-        ).asPsiType(session, TypeMappingMode.DEFAULT, this@FirLightFieldForFirCompanionObjectNode)
+        ).asPsiType(session, TypeMappingMode.DEFAULT, this@FirLightFieldForFirObjectNode)
     }
 
     override fun getType(): PsiType = _type

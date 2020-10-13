@@ -11,18 +11,31 @@ import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
 import org.jetbrains.kotlin.analyzer.KotlinModificationTrackerService
+import org.jetbrains.kotlin.asJava.KotlinAsJavaSupport
+import org.jetbrains.kotlin.asJava.classes.FacadeCache
 import org.jetbrains.kotlin.asJava.classes.KtLightClass
+import org.jetbrains.kotlin.asJava.classes.KtLightClassForFacade
 import org.jetbrains.kotlin.asJava.classes.shouldNotBeVisibleAsLightClass
+import org.jetbrains.kotlin.idea.asJava.FirLightClassForFacade
 import org.jetbrains.kotlin.idea.asJava.FirLightClassForSourceDeclaration
 import org.jetbrains.kotlin.idea.util.ifFalse
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtScript
 
 class IDEKotlinAsJavaFirSupport(project: Project) : IDEKotlinAsJavaSupport(project) {
 
 
-    override fun createLightClassForFacade(manager: PsiManager, facadeClassFqName: FqName, searchScope: GlobalSearchScope): KtLightClass? = null
+    //TODO Make caching
+    override fun createLightClassForFacade(manager: PsiManager, facadeClassFqName: FqName, searchScope: GlobalSearchScope): KtLightClass? {
+        val sources = findFilesForFacade(facadeClassFqName, searchScope)
+            .filterNot { it.isCompiled }
+
+        if (sources.isEmpty()) return null
+
+        return FirLightClassForFacade(manager, facadeClassFqName, sources)
+    }
 
     override fun createLightClassForScript(script: KtScript): KtLightClass? = null
 
