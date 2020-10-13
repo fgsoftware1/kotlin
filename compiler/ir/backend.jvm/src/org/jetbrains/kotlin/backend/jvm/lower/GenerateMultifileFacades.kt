@@ -268,7 +268,10 @@ private class UpdateFunctionCallSites(
 
         return expression.run {
             // TODO: deduplicate this with ReplaceKFunctionInvokeWithFunctionInvoke
-            IrCallImpl(startOffset, endOffset, type, newFunction.symbol).apply {
+            IrCallImpl(
+                startOffset, endOffset, type, newFunction.symbol,
+                newFunction.typeParameters.size, newFunction.valueParameters.size
+            ).apply {
                 copyTypeArgumentsFrom(expression)
                 extensionReceiver = expression.extensionReceiver?.transform(this@UpdateFunctionCallSites, null)
                 for (i in 0 until valueArgumentsCount) {

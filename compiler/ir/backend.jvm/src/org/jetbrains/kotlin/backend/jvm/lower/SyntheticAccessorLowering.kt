@@ -282,7 +282,9 @@ internal class SyntheticAccessorLowering(val context: JvmBackendContext) : IrEle
         IrDelegatingConstructorCallImpl(
             UNDEFINED_OFFSET, UNDEFINED_OFFSET,
             context.irBuiltIns.unitType,
-            targetSymbol, targetSymbol.owner.parentAsClass.typeParameters.size + targetSymbol.owner.typeParameters.size
+            targetSymbol,
+            targetSymbol.owner.parentAsClass.typeParameters.size + targetSymbol.owner.typeParameters.size,
+            targetSymbol.owner.valueParameters.size
         ).also {
             copyAllParamsToArgs(it, accessor)
         }
@@ -318,7 +320,7 @@ internal class SyntheticAccessorLowering(val context: JvmBackendContext) : IrEle
             accessor.startOffset,
             accessor.endOffset,
             accessor.returnType,
-            targetSymbol, targetSymbol.owner.typeParameters.size,
+            targetSymbol, targetSymbol.owner.typeParameters.size, targetSymbol.owner.valueParameters.size,
             superQualifierSymbol = superQualifierSymbol
         ).also {
             copyAllParamsToArgs(it, accessor)
@@ -415,16 +417,18 @@ internal class SyntheticAccessorLowering(val context: JvmBackendContext) : IrEle
             is IrCall -> IrCallImpl(
                 oldExpression.startOffset, oldExpression.endOffset,
                 oldExpression.type,
-                accessorSymbol as IrSimpleFunctionSymbol, oldExpression.typeArgumentsCount,
+                accessorSymbol as IrSimpleFunctionSymbol,
+                accessorSymbol.owner.typeParameters.size, accessorSymbol.owner.valueParameters.size,
                 oldExpression.origin
             )
             is IrDelegatingConstructorCall -> IrDelegatingConstructorCallImpl(
                 oldExpression.startOffset, oldExpression.endOffset,
                 context.irBuiltIns.unitType,
-                accessorSymbol as IrConstructorSymbol, oldExpression.typeArgumentsCount
+                accessorSymbol as IrConstructorSymbol,
+                accessorSymbol.owner.allTypeParameters.size, accessorSymbol.owner.valueParameters.size
             )
             is IrConstructorCall ->
-                IrConstructorCallImpl.fromSymbolDescriptor(
+                IrConstructorCallImpl.fromSymbolOwner(
                     oldExpression.startOffset, oldExpression.endOffset,
                     oldExpression.type,
                     accessorSymbol as IrConstructorSymbol
@@ -457,7 +461,7 @@ internal class SyntheticAccessorLowering(val context: JvmBackendContext) : IrEle
         val call = IrCallImpl(
             oldExpression.startOffset, oldExpression.endOffset,
             oldExpression.type,
-            accessorSymbol, 0,
+            accessorSymbol, 0, accessorSymbol.owner.valueParameters.size,
             oldExpression.origin
         )
         oldExpression.receiver?.let {
@@ -473,7 +477,7 @@ internal class SyntheticAccessorLowering(val context: JvmBackendContext) : IrEle
         val call = IrCallImpl(
             oldExpression.startOffset, oldExpression.endOffset,
             oldExpression.type,
-            accessorSymbol, 0,
+            accessorSymbol, 0, accessorSymbol.owner.valueParameters.size,
             oldExpression.origin
         )
         oldExpression.receiver?.let {

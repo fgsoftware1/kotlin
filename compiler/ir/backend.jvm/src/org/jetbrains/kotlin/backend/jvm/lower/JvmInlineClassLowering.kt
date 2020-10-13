@@ -302,7 +302,11 @@ private class JvmInlineClassLowering(private val context: JvmBackendContext) : F
     }
 
     private fun coerceInlineClasses(argument: IrExpression, from: IrType, to: IrType) =
-        IrCallImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, to, context.ir.symbols.unsafeCoerceIntrinsic).apply {
+        IrCallImpl(
+            UNDEFINED_OFFSET, UNDEFINED_OFFSET, to, context.ir.symbols.unsafeCoerceIntrinsic,
+            typeArgumentsCount = 2,
+            valueArgumentsCount = 1
+        ).apply {
             putTypeArgument(0, from)
             putTypeArgument(1, to)
             putValueArgument(0, argument)

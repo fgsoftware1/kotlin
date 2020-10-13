@@ -50,7 +50,10 @@ private class ReplaceKFunctionInvokeWithFunctionInvoke : FileLoweringPass, IrEle
         // The single overridden function of KFunction{n}.invoke must be Function{n}.invoke.
         val newCallee = callee.overriddenSymbols.single()
         return expression.run {
-            IrCallImpl(startOffset, endOffset, type, newCallee).apply {
+            IrCallImpl(
+                startOffset, endOffset, type,
+                newCallee, newCallee.owner.typeParameters.size, newCallee.owner.valueParameters.size
+            ).apply {
                 copyTypeArgumentsFrom(expression)
                 dispatchReceiver = expression.dispatchReceiver?.transform(this@ReplaceKFunctionInvokeWithFunctionInvoke, null)?.let {
                     val newType = newCallee.owner.parentAsClass.defaultType

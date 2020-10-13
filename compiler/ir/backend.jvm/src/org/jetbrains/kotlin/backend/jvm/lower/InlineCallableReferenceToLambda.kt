@@ -116,6 +116,7 @@ private class InlineCallableReferenceToLambdaTransformer(
                 field.type,
                 function.symbol,
                 typeArgumentsCount = 0,
+                valueArgumentsCount = function.valueParameters.size,
                 reflectionTarget = null,
                 origin = IrStatementOrigin.LAMBDA
             ).apply {
@@ -196,6 +197,7 @@ private class InlineCallableReferenceToLambdaTransformer(
                 function.returnType,
                 function.symbol,
                 typeArgumentsCount = function.typeParameters.size,
+                valueArgumentsCount = function.valueParameters.size,
                 reflectionTarget = null,
                 origin = IrStatementOrigin.LAMBDA
             ).apply {

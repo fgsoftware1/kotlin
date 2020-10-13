@@ -64,7 +64,9 @@ class JvmStandardLibraryBuiltInsLowering(val context: JvmBackendContext) : FileL
             startOffset,
             endOffset,
             type,
-            replacement
+            replacement,
+            replacement.owner.typeParameters.size,
+            replacement.owner.valueParameters.size
         ).also { newCall ->
             var valueArgumentOffset = 0
             this.dispatchReceiver?.let {
@@ -81,7 +83,9 @@ class JvmStandardLibraryBuiltInsLowering(val context: JvmBackendContext) : FileL
             startOffset,
             endOffset,
             target,
-            context.ir.symbols.unsafeCoerceIntrinsic
+            context.ir.symbols.unsafeCoerceIntrinsic,
+            typeArgumentsCount = 2,
+            valueArgumentsCount = 1
         ).also { call ->
             call.putTypeArgument(0, type)
             call.putTypeArgument(1, target)

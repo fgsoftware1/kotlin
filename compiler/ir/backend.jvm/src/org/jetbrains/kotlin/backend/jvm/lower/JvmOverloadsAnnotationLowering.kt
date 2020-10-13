@@ -58,9 +58,15 @@ private class JvmOverloadsAnnotationLowering(val context: JvmBackendContext) : C
 
         val call = when (target) {
             is IrConstructor ->
-                IrDelegatingConstructorCallImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, context.irBuiltIns.unitType, target.symbol)
+                IrDelegatingConstructorCallImpl(
+                    UNDEFINED_OFFSET, UNDEFINED_OFFSET, context.irBuiltIns.unitType, target.symbol,
+                    wrapperIrFunction.allTypeParameters.size, target.valueParameters.size
+                )
             is IrSimpleFunction ->
-                IrCallImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, target.returnType, target.symbol)
+                IrCallImpl(
+                    UNDEFINED_OFFSET, UNDEFINED_OFFSET, target.returnType, target.symbol,
+                    wrapperIrFunction.allTypeParameters.size, target.valueParameters.size
+                )
             else ->
                 error("unknown function kind: ${target.render()}")
         }

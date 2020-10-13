@@ -208,7 +208,9 @@ class JvmOptimizationLowering(val context: JvmBackendContext) : FileLoweringPass
                         expression.startOffset,
                         expression.endOffset,
                         context.irBuiltIns.booleanType,
-                        context.irBuiltIns.andandSymbol
+                        context.irBuiltIns.andandSymbol,
+                        typeArgumentsCount = 0,
+                        valueArgumentsCount = 2
                     ).apply {
                         putValueArgument(0, expression.branches[0].condition)
                         putValueArgument(1, expression.branches[0].result)
@@ -229,7 +231,9 @@ class JvmOptimizationLowering(val context: JvmBackendContext) : FileLoweringPass
                         expression.startOffset,
                         expression.endOffset,
                         context.irBuiltIns.booleanType,
-                        context.irBuiltIns.ororSymbol
+                        context.irBuiltIns.ororSymbol,
+                        typeArgumentsCount = 0,
+                        valueArgumentsCount = 2
                     ).apply {
                         putValueArgument(0, expression.branches[0].condition)
                         putValueArgument(1, expression.branches[1].result)

@@ -77,7 +77,11 @@ class PolymorphicSignatureLowering(val context: JvmBackendContext) : IrElementTr
                 addValueParameter("\$$i", value.type, JvmLoweredDeclarationOrigin.POLYMORPHIC_SIGNATURE_INSTANTIATION)
             }
         }
-        return IrCallImpl(startOffset, endOffset, fakeFunction.returnType, fakeFunction.symbol, origin, superQualifierSymbol).apply {
+        return IrCallImpl(
+            startOffset, endOffset, fakeFunction.returnType, fakeFunction.symbol,
+            fakeFunction.typeParameters.size, fakeFunction.valueParameters.size,
+            origin, superQualifierSymbol
+        ).apply {
             copyTypeArgumentsFrom(this@transform)
             dispatchReceiver = this@transform.dispatchReceiver
             extensionReceiver = this@transform.extensionReceiver

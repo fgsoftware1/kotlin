@@ -69,14 +69,20 @@ private class AddContinuationLowering(context: JvmBackendContext) : SuspendLower
                 // The only references not yet transformed into objects are inline lambdas; the continuation
                 // for those will be taken from the inline functions they are passed to, not the enclosing scope.
                 return transformed.retargetToSuspendView(context, null) {
-                    IrFunctionReferenceImpl(startOffset, endOffset, type, it, typeArgumentsCount, reflectionTarget, origin)
+                    IrFunctionReferenceImpl(
+                        startOffset, endOffset, type, it, typeArgumentsCount, it.owner.valueParameters.size, reflectionTarget, origin
+                    )
                 }
             }
 
             override fun visitCall(expression: IrCall): IrExpression {
                 val transformed = super.visitCall(expression) as IrCall
                 return transformed.retargetToSuspendView(context, functionStack.peek() ?: return transformed) {
-                    IrCallImpl(startOffset, endOffset, type, it, origin, superQualifierSymbol)
+                    IrCallImpl(
+                        startOffset, endOffset, type, it,
+                        it.owner.typeParameters.size, it.owner.valueParameters.size,
+                        origin, superQualifierSymbol
+                    )
                 }
             }
         })

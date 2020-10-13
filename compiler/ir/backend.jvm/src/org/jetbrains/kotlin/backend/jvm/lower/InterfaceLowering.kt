@@ -193,7 +193,10 @@ internal class InterfaceLowering(val context: JvmBackendContext) : IrElementTran
     // Bridge from static to static method - simply fill the function arguments to the parameters.
     // By nature of the generation of both source and target of bridge, they line up.
     private fun IrFunction.bridgeToStatic(callTarget: IrSimpleFunction) {
-        body = IrExpressionBodyImpl(IrCallImpl(startOffset, endOffset, returnType, callTarget.symbol).also { call ->
+        body = IrExpressionBodyImpl(
+            IrCallImpl(
+                startOffset, endOffset, returnType, callTarget.symbol, callTarget.typeParameters.size, callTarget.valueParameters.size
+            ).also { call ->
 
             callTarget.typeParameters.forEachIndexed { i, _ ->
                 call.putTypeArgument(i, createPlaceholderAnyNType(context.irBuiltIns))
@@ -214,6 +217,8 @@ internal class InterfaceLowering(val context: JvmBackendContext) : IrElementTran
                 endOffset,
                 returnType,
                 callTarget.symbol,
+                callTarget.typeParameters.size,
+                callTarget.valueParameters.size,
                 superQualifierSymbol = callTarget.parentAsClass.symbol
             ).also { call ->
                 this.typeParameters.drop(callTarget.parentAsClass.typeParameters.size).forEachIndexed { i, typeParameter ->
