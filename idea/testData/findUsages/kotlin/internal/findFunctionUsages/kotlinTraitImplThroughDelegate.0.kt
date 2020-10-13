@@ -1,3 +1,4 @@
+// FIR_COMPARASION
 // PSI_ELEMENT: org.jetbrains.kotlin.psi.KtNamedFunction
 // OPTIONS: usages, skipImports
 package server
