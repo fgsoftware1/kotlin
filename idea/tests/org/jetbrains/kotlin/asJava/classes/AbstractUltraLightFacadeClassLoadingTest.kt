@@ -31,7 +31,20 @@ abstract class AbstractUltraLightFacadeClassTest : KotlinLightCodeInsightFixture
 
         val scope = GlobalSearchScope.allScope(project)
         val facades = KotlinAsJavaSupport.getInstance(project).getFacadeNames(FqName.ROOT, scope)
+//
+        checkLightFacades(facades, scope)
+//        if (checkByJavaFile) {
+//            val classFabric = KotlinAsJavaSupport.getInstance(project)
+//
+//            val lightClasses = facades.flatMap {
+//                classFabric.getFacadeClasses(FqName(it), scope)
+//            }.filterIsInstance<KtLightClass>()
+//
+//            checkByJavaFile(testDataPath, lightClasses)
+//        }
+    }
 
+    protected open fun checkLightFacades(facades: Collection<String>, scope: GlobalSearchScope) {
         for (facadeName in facades) {
             val ultraLightClass = UltraLightChecker.checkFacadeEquivalence(FqName(facadeName), scope, project)
             if (ultraLightClass != null) {

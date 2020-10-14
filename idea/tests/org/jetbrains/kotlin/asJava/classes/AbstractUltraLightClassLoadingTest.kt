@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.asJava.LightClassGenerationSupport
 import org.jetbrains.kotlin.asJava.PsiClassRenderer
 import org.jetbrains.kotlin.asJava.PsiClassRenderer.renderClass
 import org.jetbrains.kotlin.idea.perf.UltraLightChecker
+import org.jetbrains.kotlin.idea.perf.UltraLightChecker.checkByJavaFile
 import org.jetbrains.kotlin.idea.perf.UltraLightChecker.checkDescriptorsLeak
 import org.jetbrains.kotlin.idea.test.KotlinLightCodeInsightFixtureTestCase
 import org.jetbrains.kotlin.idea.test.KotlinWithJdkAndRuntimeLightProjectDescriptor
@@ -20,21 +21,6 @@ import java.io.File
 
 abstract class AbstractUltraLightClassLoadingTest : KotlinLightCodeInsightFixtureTestCase() {
     override fun getProjectDescriptor(): LightProjectDescriptor = KotlinWithJdkAndRuntimeLightProjectDescriptor.INSTANCE
-
-    protected fun checkByJavaFile(testDataPath: String, lightClasses: List<KtLightClass>) {
-        val expectedTextFile = KotlinTestUtils.replaceExtension(File(testDataPath), "java")
-        assertTrue(expectedTextFile.exists())
-
-        val extendedTypeRendererOld = PsiClassRenderer.extendedTypeRenderer
-        val renderedResult = try {
-            PsiClassRenderer.extendedTypeRenderer = testDataPath.endsWith("typeAnnotations.kt")
-            lightClasses.joinToString("\n\n") { it.renderClass() }
-        } finally {
-            PsiClassRenderer.extendedTypeRenderer = extendedTypeRendererOld
-        }
-
-        KotlinTestUtils.assertEqualsToFile(expectedTextFile, renderedResult)
-    }
 
     open fun doTest(testDataPath: String) {
         val sourceText = File(testDataPath).readText()
