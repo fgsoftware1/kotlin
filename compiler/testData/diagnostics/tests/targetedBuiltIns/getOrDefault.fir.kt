@@ -14,7 +14,7 @@ fun foo(x: Map<Int, String>, a: A, b: java.util.HashMap<Int, String>) {
     a.<!NONE_APPLICABLE!>getOrDefault<!>("", 2)
 
     b.getOrDefault(1, "")
-    b.getOrDefault("", "")
+    b.<!INAPPLICABLE_CANDIDATE!>getOrDefault<!>("", "")
     b.<!INAPPLICABLE_CANDIDATE!>getOrDefault<!>(1, 2)
     b.<!INAPPLICABLE_CANDIDATE!>getOrDefault<!>("", 2)
 }

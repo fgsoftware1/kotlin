@@ -38,7 +38,7 @@ FILE fqName:<root> fileName:/AbstractMutableMap.kt
         public abstract fun putAll (from: kotlin.collections.Map<out K of kotlin.collections.MutableMap, V of kotlin.collections.MutableMap>): kotlin.Unit declared in kotlin.collections.MutableMap
       $this: VALUE_PARAMETER name:<this> type:kotlin.collections.MutableMap<K of kotlin.collections.MutableMap, V of kotlin.collections.MutableMap>
       VALUE_PARAMETER name:from index:0 type:kotlin.collections.Map<out K of <root>.MyMap, V of <root>.MyMap>
-    FUN FAKE_OVERRIDE name:remove visibility:public modality:ABSTRACT <> ($this:kotlin.collections.MutableMap<K of kotlin.collections.MutableMap, V of kotlin.collections.MutableMap>, key:K of <root>.MyMap) returnType:V of <root>.MyMap? [fake_override]
+    FUN FAKE_OVERRIDE name:remove visibility:public modality:OPEN <> ($this:kotlin.collections.MutableMap<K of kotlin.collections.MutableMap, V of kotlin.collections.MutableMap>, key:K of <root>.MyMap) returnType:V of <root>.MyMap? [fake_override]
       overridden:
         public abstract fun remove (key: K of kotlin.collections.MutableMap): V of kotlin.collections.MutableMap? declared in kotlin.collections.MutableMap
       $this: VALUE_PARAMETER name:<this> type:kotlin.collections.MutableMap<K of kotlin.collections.MutableMap, V of kotlin.collections.MutableMap>
@@ -49,11 +49,6 @@ FILE fqName:<root> fileName:/AbstractMutableMap.kt
       $this: VALUE_PARAMETER name:<this> type:kotlin.collections.MutableMap<K of kotlin.collections.MutableMap, V of kotlin.collections.MutableMap>
       VALUE_PARAMETER name:key index:0 type:K of <root>.MyMap
       VALUE_PARAMETER name:value index:1 type:V of <root>.MyMap
-    FUN FAKE_OVERRIDE name:remove visibility:public modality:OPEN <> ($this:java.util.AbstractMap<K of java.util.AbstractMap, V of java.util.AbstractMap>, p0:kotlin.Any?) returnType:V of <root>.MyMap? [fake_override]
-      overridden:
-        public open fun remove (p0: kotlin.Any?): V of java.util.AbstractMap? declared in java.util.AbstractMap
-      $this: VALUE_PARAMETER name:<this> type:java.util.AbstractMap<K of java.util.AbstractMap, V of java.util.AbstractMap>
-      VALUE_PARAMETER name:p0 index:0 type:kotlin.Any?
     PROPERTY FAKE_OVERRIDE name:keys visibility:public modality:ABSTRACT [fake_override,val]
       FUN FAKE_OVERRIDE name:<get-keys> visibility:public modality:ABSTRACT <> ($this:kotlin.collections.MutableMap<K of kotlin.collections.MutableMap, V of kotlin.collections.MutableMap>) returnType:kotlin.collections.MutableSet<K of <root>.MyMap> [fake_override]
         correspondingProperty: PROPERTY FAKE_OVERRIDE name:keys visibility:public modality:ABSTRACT [fake_override,val]
@@ -70,36 +65,26 @@ FILE fqName:<root> fileName:/AbstractMutableMap.kt
         overridden:
           public abstract fun <get-values> (): kotlin.collections.MutableCollection<V of kotlin.collections.MutableMap> declared in kotlin.collections.MutableMap
         $this: VALUE_PARAMETER name:<this> type:kotlin.collections.MutableMap<K of kotlin.collections.MutableMap, V of kotlin.collections.MutableMap>
-    FUN FAKE_OVERRIDE name:containsKey visibility:public modality:ABSTRACT <> ($this:kotlin.collections.Map<K of kotlin.collections.Map, V of kotlin.collections.Map>, key:K of <root>.MyMap) returnType:kotlin.Boolean [fake_override]
+    FUN FAKE_OVERRIDE name:containsKey visibility:public modality:OPEN <> ($this:kotlin.collections.Map<K of kotlin.collections.Map, V of kotlin.collections.Map>, key:K of <root>.MyMap) returnType:kotlin.Boolean [fake_override]
       overridden:
         public abstract fun containsKey (key: K of kotlin.collections.Map): kotlin.Boolean declared in kotlin.collections.Map
       $this: VALUE_PARAMETER name:<this> type:kotlin.collections.Map<K of kotlin.collections.Map, V of kotlin.collections.Map>
       VALUE_PARAMETER name:key index:0 type:K of <root>.MyMap
-    FUN FAKE_OVERRIDE name:containsKey visibility:public modality:OPEN <> ($this:java.util.AbstractMap<K of java.util.AbstractMap, V of java.util.AbstractMap>, p0:kotlin.Any?) returnType:kotlin.Boolean [fake_override]
-      overridden:
-        public open fun containsKey (p0: kotlin.Any?): kotlin.Boolean declared in java.util.AbstractMap
-      $this: VALUE_PARAMETER name:<this> type:java.util.AbstractMap<K of java.util.AbstractMap, V of java.util.AbstractMap>
-      VALUE_PARAMETER name:p0 index:0 type:kotlin.Any?
     FUN FAKE_OVERRIDE name:containsValue visibility:public modality:ABSTRACT <> ($this:kotlin.collections.Map<K of kotlin.collections.Map, V of kotlin.collections.Map>, value:V of <root>.MyMap) returnType:kotlin.Boolean [fake_override]
       overridden:
         public abstract fun containsValue (value: V of kotlin.collections.Map): kotlin.Boolean declared in kotlin.collections.Map
       $this: VALUE_PARAMETER name:<this> type:kotlin.collections.Map<K of kotlin.collections.Map, V of kotlin.collections.Map>
       VALUE_PARAMETER name:value index:0 type:V of <root>.MyMap
-    FUN FAKE_OVERRIDE name:containsValue visibility:public modality:OPEN <> ($this:java.util.AbstractMap<K of java.util.AbstractMap, V of java.util.AbstractMap>, p0:kotlin.Any?) returnType:kotlin.Boolean [fake_override]
+    FUN FAKE_OVERRIDE name:containsValue visibility:public modality:OPEN <> ($this:java.util.AbstractMap<K of java.util.AbstractMap, V of java.util.AbstractMap>, p0:K of <root>.MyMap?) returnType:kotlin.Boolean [fake_override]
       overridden:
-        public open fun containsValue (p0: kotlin.Any?): kotlin.Boolean declared in java.util.AbstractMap
+        public open fun containsValue (p0: K of java.util.AbstractMap?): kotlin.Boolean declared in java.util.AbstractMap
       $this: VALUE_PARAMETER name:<this> type:java.util.AbstractMap<K of java.util.AbstractMap, V of java.util.AbstractMap>
-      VALUE_PARAMETER name:p0 index:0 type:kotlin.Any?
-    FUN FAKE_OVERRIDE name:get visibility:public modality:ABSTRACT <> ($this:kotlin.collections.Map<K of kotlin.collections.Map, V of kotlin.collections.Map>, key:K of <root>.MyMap) returnType:V of <root>.MyMap? [fake_override,operator]
+      VALUE_PARAMETER name:p0 index:0 type:K of <root>.MyMap?
+    FUN FAKE_OVERRIDE name:get visibility:public modality:OPEN <> ($this:kotlin.collections.Map<K of kotlin.collections.Map, V of kotlin.collections.Map>, key:K of <root>.MyMap) returnType:V of <root>.MyMap? [fake_override,operator]
       overridden:
         public abstract fun get (key: K of kotlin.collections.Map): V of kotlin.collections.Map? [operator] declared in kotlin.collections.Map
       $this: VALUE_PARAMETER name:<this> type:kotlin.collections.Map<K of kotlin.collections.Map, V of kotlin.collections.Map>
       VALUE_PARAMETER name:key index:0 type:K of <root>.MyMap
-    FUN FAKE_OVERRIDE name:get visibility:public modality:OPEN <> ($this:java.util.AbstractMap<K of java.util.AbstractMap, V of java.util.AbstractMap>, p0:kotlin.Any?) returnType:V of <root>.MyMap? [fake_override,operator]
-      overridden:
-        public open fun get (p0: kotlin.Any?): V of java.util.AbstractMap? [operator] declared in java.util.AbstractMap
-      $this: VALUE_PARAMETER name:<this> type:java.util.AbstractMap<K of java.util.AbstractMap, V of java.util.AbstractMap>
-      VALUE_PARAMETER name:p0 index:0 type:kotlin.Any?
     FUN FAKE_OVERRIDE name:getOrDefault visibility:public modality:OPEN <> ($this:kotlin.collections.Map<K of kotlin.collections.Map, V of kotlin.collections.Map>, key:K of <root>.MyMap, defaultValue:V of <root>.MyMap) returnType:V of <root>.MyMap [fake_override]
       overridden:
         public open fun getOrDefault (key: K of kotlin.collections.Map, defaultValue: V of kotlin.collections.Map): V of kotlin.collections.Map declared in kotlin.collections.Map
